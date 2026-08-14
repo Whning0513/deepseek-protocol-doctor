@@ -61,7 +61,10 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["version"], "2.1.0")
         self.assertEqual(result["level"], "error")
         self.assertIn("messages[2]", result["message"]["text"])
-        self.assertEqual(result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"], source)
+        self.assertEqual(
+            result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"],
+            Path(source).as_posix(),
+        )
 
     def test_check_dash_reads_json_from_stdin(self):
         payload = (ROOT / "fixtures" / "valid_tool_loop.json").read_text(encoding="utf-8")

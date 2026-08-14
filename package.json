@@ -1,0 +1,53 @@
+{
+  "name": "dsh-deepseek-protocol-doctor",
+  "version": "0.1.0",
+  "description": "Offline DeepSeek request, tool-loop, reasoning_content, and SSE diagnostics for DSH",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "dsh/",
+    "src/dsv4doctor/*.py",
+    "cordis.patch.yml",
+    "README.md",
+    "README.en.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test tests-js/*.test.js"
+  },
+  "keywords": [
+    "deepseek",
+    "dsh",
+    "dsh-plugin",
+    "tool-calling",
+    "reasoning-content",
+    "sse"
+  ],
+  "license": "MIT",
+  "author": "DeepSeek Protocol Doctor contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Whning0513/deepseek-protocol-doctor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Whning0513/deepseek-protocol-doctor/issues"
+  },
+  "homepage": "https://github.com/Whning0513/deepseek-protocol-doctor#readme",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-tools": ">=0.0.1-rc.1 <0.0.2 || >=0.1.0-rc.1 <0.2.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

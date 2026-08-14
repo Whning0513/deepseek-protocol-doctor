@@ -1,0 +1,3 @@
+- insert:
+    - id: tool-deepseek-protocol-doctor
+      name: dsh-deepseek-protocol-doctor

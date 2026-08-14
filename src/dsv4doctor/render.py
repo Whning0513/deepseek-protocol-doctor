@@ -63,7 +63,7 @@ def render_sarif(report: Report) -> str:
         "version": "2.1.0",
         "runs": [
             {
-                "tool": {"driver": {"name": "deepseek-protocol-doctor", "version": "0.1.0", "rules": list(rules.values())}},
+                "tool": {"driver": {"name": "deepseek-protocol-doctor", "version": "0.1.1", "rules": list(rules.values())}},
                 "results": results,
             }
         ],

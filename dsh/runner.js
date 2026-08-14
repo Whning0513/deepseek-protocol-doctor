@@ -36,15 +36,22 @@ async function runDoctor(command, input, options) {
 
   const configuredPython = process.env.DSV4_DOCTOR_PYTHON
   const candidates = configuredPython
-    ? [configuredPython]
+    ? [{ command: configuredPython, prefixArgs: [] }]
     : process.platform === 'win32'
-      ? ['python', 'python3']
-      : ['python3', 'python']
+      ? [
+          { command: 'python', prefixArgs: [] },
+          { command: 'py', prefixArgs: ['-3'] },
+          { command: 'python3', prefixArgs: [] },
+        ]
+      : [
+          { command: 'python3', prefixArgs: [] },
+          { command: 'python', prefixArgs: [] },
+        ]
 
   let lastMissingError
-  for (const python of candidates) {
+  for (const candidate of candidates) {
     try {
-      return await spawnDoctor(python, command, input, options)
+      return await spawnDoctor(candidate, command, input, options)
     } catch (error) {
       if (error?.code !== 'ENOENT') throw error
       lastMissingError = error
@@ -63,8 +70,17 @@ function spawnDoctor(python, command, input, options) {
       ? `${SOURCE_ROOT}${delimiter}${process.env.PYTHONPATH}`
       : SOURCE_ROOT
     const child = spawn(
-      python,
-      ['-m', 'dsv4doctor', command, '-', '--format', 'json', ...(options.extraArgs ?? [])],
+      python.command,
+      [
+        ...python.prefixArgs,
+        '-m',
+        'dsv4doctor',
+        command,
+        '-',
+        '--format',
+        'json',
+        ...(options.extraArgs ?? []),
+      ],
       {
         cwd: PLUGIN_ROOT,
         env: { ...process.env, PYTHONPATH: pythonPath },

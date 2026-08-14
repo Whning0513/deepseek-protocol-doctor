@@ -65,7 +65,7 @@ class Report:
     def to_dict(self) -> dict[str, Any]:
         return {
             "tool": "deepseek-protocol-doctor",
-            "version": "0.1.0",
+            "version": "0.1.1",
             "kind": self.kind,
             "source": self.source,
             "ok": self.ok,

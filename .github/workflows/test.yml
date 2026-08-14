@@ -8,19 +8,13 @@ permissions:
   contents: read
 
 jobs:
-  python:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: PYTHONPATH=src python -m unittest discover -s tests -v
-      - run: PYTHONPATH=src python -m dsv4doctor check fixtures/valid_tool_loop.json
-      - run: PYTHONPATH=src python -m dsv4doctor stream fixtures/stream_interleaved.jsonl
-
-  dsh:
-    runs-on: ubuntu-latest
+  portable:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -29,5 +23,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22.19.0"
+      - run: python -m unittest discover -s tests -v
+        env:
+          PYTHONPATH: src
+      - run: python -m dsv4doctor check fixtures/valid_tool_loop.json
+        env:
+          PYTHONPATH: src
+      - run: python -m dsv4doctor stream fixtures/stream_interleaved.jsonl
+        env:
+          PYTHONPATH: src
       - run: npm test
       - run: npm pack --dry-run

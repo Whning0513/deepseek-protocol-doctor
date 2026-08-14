@@ -1,0 +1,60 @@
+{
+  "model": "deepseek-v4-pro",
+  "max_tokens": 1024,
+  "extra_body": {
+    "thinking": {
+      "type": "enabled"
+    }
+  },
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "get_weather",
+        "description": "Get the weather for a city",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "location": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "location"
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
+  ],
+  "messages": [
+    {
+      "role": "user",
+      "content": "What is the weather in Hangzhou?"
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "reasoning_content": "The user needs a weather lookup.",
+      "tool_calls": [
+        {
+          "id": "call_weather_1",
+          "type": "function",
+          "function": {
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Hangzhou\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_weather_1",
+      "content": "24°C and sunny"
+    },
+    {
+      "role": "assistant",
+      "content": "It is 24°C and sunny in Hangzhou."
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "model": "deepseek-v4-pro",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Look this up"
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_broken",
+          "type": "function",
+          "function": {
+            "name": "lookup",
+            "arguments": "{\"query\":"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_wrong",
+      "content": "result"
+    }
+  ]
+}

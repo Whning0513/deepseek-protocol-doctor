@@ -3,40 +3,33 @@
 English | [中文](README.md)
 
 [![test](https://github.com/Whning0513/deepseek-protocol-doctor/actions/workflows/test.yml/badge.svg)](https://github.com/Whning0513/deepseek-protocol-doctor/actions/workflows/test.yml)
-[![GitHub release](https://img.shields.io/github/v/release/Whning0513/deepseek-protocol-doctor)](https://github.com/Whning0513/deepseek-protocol-doctor/releases)
-[![license](https://img.shields.io/github/license/Whning0513/deepseek-protocol-doctor)](LICENSE)
 
-An offline-by-default DeepSeek request doctor with no Python runtime dependencies, also packaged as a source-installable [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness) plugin.
+While wiring up DeepSeek tool calling, I kept running into failures that looked like model problems at first: a tool result was present but the next request still returned 400; a stream looked fine until the assembled arguments failed JSON parsing; the same history worked with thinking disabled and failed when it was enabled.
 
-It checks the protocol boundaries that are often mistaken for model-quality problems in OpenAI-compatible clients: tool loops, the `reasoning_content` lifecycle, strict schemas, thinking mode, `max_tokens`, and streamed tool-argument assembly. It makes no network requests, reads no API keys, and incurs no model usage costs.
+Many of these turned out to be request/response assembly bugs. This tool takes a request JSON or a captured SSE stream and checks the common cases before you spend time debugging the model. It only reads the input you give it and does not call a provider.
 
-> This is an independent community project, not an official DeepSeek component. DSH is currently a developer preview and its plugin interfaces may change.
+## Install in DSH
 
-## Install as a DSH plugin
-
-You need a DSH-supported Node.js version and Python 3.10+ on PATH. Replace the example `demo` profile with your profile:
+Replace `demo` with the profile you use:
 
 ```bash
 dsh plugin --profile demo add github:Whning0513/deepseek-protocol-doctor
 ```
 
-Restart that DSH process. The bundle registers two read-only tools:
+Restart DSH. The plugin adds two tools:
 
-| Tool | Input | Purpose |
-| --- | --- | --- |
-| `deepseek_protocol_check` | Request object or bare `messages` array | Check reasoning preservation, tool-call/result pairing, schemas, and request options |
-| `deepseek_stream_check` | SSE or JSONL text | Reassemble streamed tool arguments by index and validate the final JSON |
+- `deepseek_protocol_check` checks a request or message history.
+- `deepseek_stream_check` checks a captured SSE or JSONL stream.
 
-Example prompts:
+For example:
 
 ```text
-Use deepseek_protocol_check to audit this request before I send it: { ... }
-Use deepseek_stream_check to inspect this captured SSE stream: "data: {...}\n..."
+Use deepseek_protocol_check to find the tool-calling problem in this request: { ... }
 ```
 
-The plugin invokes the bundled Python core through a shell-free child process. Input and output are each capped at 4 MiB, and execution observes DSH cancellation. If Python is not on the default PATH, set `DSV4_DOCTOR_PYTHON` to the interpreter executable path.
+The plugin needs Python 3.10+. If `python3` is not on PATH, set `DSV4_DOCTOR_PYTHON` to the interpreter you want it to use.
 
-## Use as a CLI
+## Command line
 
 ```bash
 python3 -m venv .venv
@@ -48,40 +41,42 @@ dsv4-doctor check fixtures/invalid_tool_loop.json
 dsv4-doctor stream fixtures/stream_interleaved.jsonl
 ```
 
-Or run without installing:
+It also runs without installation:
 
 ```bash
 PYTHONPATH=src python -m dsv4doctor check fixtures/valid_tool_loop.json
 ```
 
-The request input may be a full envelope or a bare `messages` array. Stream inspection accepts `data: {...}` SSE lines and raw JSONL. Exit code 1 means the report contains an error; warnings are non-blocking unless `--fail-on-warning` is used.
+`check` accepts a full OpenAI-compatible request or a bare `messages` array. `stream` accepts SSE and JSONL.
 
-## CI and SARIF
+Exit code 1 means the report contains an error. Warnings do not fail CI unless `--fail-on-warning` is set.
 
-Reports are available as text, JSON, or SARIF:
+## What it checks today
+
+- tool messages that do not match a `tool_call_id`, and tool loops that move on before every result arrives;
+- missing original `reasoning_content` in a thinking tool loop;
+- `function.arguments` parsed before all stream deltas arrive;
+- interleaved tool-call deltas appended in arrival order instead of grouped by index;
+- missing `required` or `additionalProperties: false` in strict schemas;
+- a few easy-to-miss settings around `max_tokens`, thinking mode, and `/beta` routes.
+
+Every finding has a stable code for CI use. Output is available as text, JSON, or SARIF:
 
 ```bash
-dsv4-doctor check artifacts/request.json --format json
-dsv4-doctor check artifacts/request.json --format sarif > dsv4-doctor.sarif
-dsv4-doctor stream artifacts/response.sse --format sarif > dsv4-stream.sarif
+dsv4-doctor check request.json --format json
+dsv4-doctor check request.json --format sarif > result.sarif
 ```
 
-Checks currently cover:
+The doctor will not invent missing `reasoning_content`. That field should be the exact value returned by the model; making up a replacement may get past one check while writing bad state back into the conversation.
 
-- missing `reasoning_content` across a thinking tool loop;
-- orphaned, duplicated, missing, or incomplete tool calls and results;
-- malformed non-streaming and aggregated streaming tool arguments;
-- interleaved tool-call deltas and tolerated empty-choice chunks;
-- DeepSeek strict-schema constraints;
-- explicit thinking mode, `max_tokens`, and suspicious beta routes.
+## Current limitations
 
-The doctor never invents missing `reasoning_content`. Synthesizing it may evade one validation error while corrupting the conversation; the report provides a fix hint and leaves preservation of the real response to the host harness.
+- This checks requests; it is not a benchmark and says nothing about answer quality.
+- There is no bundled tokenizer. `max_tokens` checks are static rather than a claim of exact token counting.
+- OpenRouter, vLLM, SGLang, and other compatible endpoints have behavior that is not fully covered yet.
+- DSH is still a developer preview. This wrapper may need updates as its plugin API changes.
 
-## Scope
-
-This is a protocol doctor, not a benchmark. It inspects only supplied fields and never calls a provider. It does not bundle a tokenizer, so token-related checks are static rather than a claim of exact context accounting. Proxies and local backends such as OpenRouter, vLLM, and SGLang can differ; keep separate anonymized fixtures for each behavior.
-
-## Development and contributions
+## Development
 
 ```bash
 PYTHONPATH=src python -m unittest discover -s tests -v
@@ -89,15 +84,13 @@ npm test
 npm pack --dry-run
 ```
 
-The most useful contributions are reproducible, sanitized failure captures and compatibility rules for clients such as Open WebUI, Cline, OpenCode, and local inference stacks. Read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting one.
+If you have a real failure capture, sanitize it and open an issue with a small fixture. Cases from Open WebUI, Cline, OpenCode, and local inference backends would be especially useful. See [CONTRIBUTING.md](CONTRIBUTING.md) for the fixture rules.
 
-## Community and references
+## Links
 
-- [DSH GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions) (Show and tell is a good fit for plugins)
-- [GitHub `dsh-plugin` topic](https://github.com/topics/dsh-plugin)
-- [DSH Discord](https://discord.gg/Ycq5dCaS4)
-- [DeepSeek Discord](https://discord.gg/Tc7c45Zzu5)
+- [DeepSeek Harness / DSH](https://github.com/deepseek-ai/deepseek-harness)
+- [DSH Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions)
 - [DeepSeek Tool Calls guide](https://api-docs.deepseek.com/guides/tool_calls/)
 - [DeepSeek V4 Preview Release](https://api-docs.deepseek.com/news/news260424/)
 
-MIT License
+This is a third-party project, not an official DeepSeek component. MIT License.

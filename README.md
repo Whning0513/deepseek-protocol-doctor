@@ -3,40 +3,33 @@
 [English](README.en.md) | 中文
 
 [![test](https://github.com/Whning0513/deepseek-protocol-doctor/actions/workflows/test.yml/badge.svg)](https://github.com/Whning0513/deepseek-protocol-doctor/actions/workflows/test.yml)
-[![GitHub release](https://img.shields.io/github/v/release/Whning0513/deepseek-protocol-doctor)](https://github.com/Whning0513/deepseek-protocol-doctor/releases)
-[![license](https://img.shields.io/github/license/Whning0513/deepseek-protocol-doctor)](LICENSE)
 
-一个零依赖、默认离线的 DeepSeek 请求体检器，也是可从 GitHub 直接安装的 [DeepSeek Harness（DSH）](https://github.com/deepseek-ai/deepseek-harness) 插件。
+我在接 DeepSeek tool calling 时碰到过几类很像“模型抽风”的问题：工具结果明明传回去了，请求还是 400；流式输出看着正常，最后拼出来的参数却不是 JSON；同一段 history 在关掉 thinking 后能跑，打开就报错。
 
-它检查 OpenAI-compatible 客户端里最容易被误判成“模型能力问题”的协议边界：工具调用循环、`reasoning_content` 生命周期、strict schema、thinking mode、`max_tokens`，以及 SSE 工具参数增量聚合。它不联网、不读取 API key，也不会产生模型调用费用。
+最后发现不少问题都出在请求和响应的拼接上。于是写了这个小工具，把 request JSON 或 SSE 录制丢进去，先排查这些常见坑。它只看你给它的内容，不会调用模型。
 
-> 本项目是独立社区工具，不是 DeepSeek 官方组件。目前 DSH 仍处于 developer preview，插件接口可能变化。
+## 装到 DSH 里
 
-## 作为 DSH 插件安装
-
-要求：DSH 支持的 Node.js 版本，以及 PATH 中可用的 Python 3.10+。`demo` 是 profile 示例，请替换成你实际使用的 profile：
+`demo` 换成你正在用的 profile：
 
 ```bash
 dsh plugin --profile demo add github:Whning0513/deepseek-protocol-doctor
 ```
 
-重启对应 DSH 进程后，会注册两个只读工具：
+重启 DSH 后会多出两个工具：
 
-| 工具 | 输入 | 用途 |
-| --- | --- | --- |
-| `deepseek_protocol_check` | 请求对象或 `messages` 数组 | 检查 reasoning、工具调用/结果配对、schema 与请求选项 |
-| `deepseek_stream_check` | SSE 或 JSONL 文本 | 按 index 重组流式工具参数并检查最终 JSON |
+- `deepseek_protocol_check`：检查请求和消息历史。
+- `deepseek_stream_check`：检查保存下来的 SSE / JSONL 流。
 
-可以直接让 Agent 调用，例如：
+比如可以直接对 DSH 说：
 
 ```text
-Use deepseek_protocol_check to audit this request before I send it: { ... }
-Use deepseek_stream_check to inspect this captured SSE stream: "data: {...}\n..."
+用 deepseek_protocol_check 看看这个请求里的工具调用哪里不对：{ ... }
 ```
 
-插件通过无 shell 的子进程调用仓库内自带的 Python 核心；输入和输出各限制为 4 MiB，并会响应 DSH 的取消信号。若 Python 不在默认 PATH，可把 `DSV4_DOCTOR_PYTHON` 设置为解释器的可执行文件路径。
+插件需要 Python 3.10+。一般能在终端里运行 `python3` 就行；如果 Python 装在别处，可以设置 `DSV4_DOCTOR_PYTHON`。
 
-## 作为 CLI 使用
+## 命令行用法
 
 ```bash
 python3 -m venv .venv
@@ -48,50 +41,42 @@ dsv4-doctor check fixtures/invalid_tool_loop.json
 dsv4-doctor stream fixtures/stream_interleaved.jsonl
 ```
 
-也可以不安装：
+不想安装也可以直接跑：
 
 ```bash
 PYTHONPATH=src python -m dsv4doctor check fixtures/valid_tool_loop.json
 ```
 
-输入可以是完整请求 envelope，也可以只是 `messages` 数组。流式检查接受 `data: {...}` SSE 行和裸 JSONL 行。退出码 1 表示存在 error；warning 默认不阻断，可用 `--fail-on-warning` 让 CI 更严格。
+`check` 接受完整的 OpenAI-compatible 请求，也接受单独的 `messages` 数组。`stream` 接受 SSE 和 JSONL。
 
-## CI / GitHub Code Scanning
+退出码 1 表示查到了 error。warning 默认不拦 CI；需要严格一点时加 `--fail-on-warning`。
 
-报告支持纯文本、JSON 和 SARIF：
+## 现在能查什么
+
+- tool message 找不到对应的 `tool_call_id`，或者一轮调用还没收齐结果就开始了下一轮；
+- thinking 工具循环里，assistant 原样返回的 `reasoning_content` 被客户端丢掉；
+- `function.arguments` 还没拼完就被当成 JSON 解析；
+- 多个流式 tool call 的 delta 交错到达，客户端却按到达顺序直接追加；
+- strict schema 漏了 `required` 或 `additionalProperties: false`；
+- `max_tokens`、thinking mode 和 `/beta` 路由里几个容易忽略的配置。
+
+报告里每条问题都有固定 code，方便在 CI 里处理。输出支持 text、JSON 和 SARIF：
 
 ```bash
-dsv4-doctor check artifacts/request.json --format json
-dsv4-doctor check artifacts/request.json --format sarif > dsv4-doctor.sarif
-dsv4-doctor stream artifacts/response.sse --format sarif > dsv4-stream.sarif
+dsv4-doctor check request.json --format json
+dsv4-doctor check request.json --format sarif > result.sarif
 ```
 
-## 当前检查项
+工具不会替你补一段假的 `reasoning_content`。这个字段应该保存模型原始返回值；伪造一个字符串虽然可能绕过一次检查，但会把错误内容写回会话。
 
-| 代码 | 检查 |
-| --- | --- |
-| `REASONING_CONTENT_MISSING` | assistant 发起工具调用后，没有在历史中保留原始 reasoning |
-| `TOOL_RESULT_ORPHAN` / `TOOL_RESULTS_*` | tool 结果无法对应调用，或结果不完整 |
-| `TOOL_ARGUMENTS_INVALID` | 非流式工具参数不是合法 JSON |
-| `SSE_TOOL_INDICES_INTERLEAVED` | 流式工具增量交错，并报告按 index 聚合的结果 |
-| `SSE_EMPTY_CHOICES` | 发现可容忍的 `choices=[]` chunk |
-| `STRICT_*` | strict function schema 的 required / additionalProperties 约束 |
-| `MAX_TOKENS_*` | `max_tokens` 缺失、无效或超出上下文上限 |
-| `THINKING_*` | thinking mode 未显式声明或值无效 |
-| `BETA_TOOL_ROUTE` | 工具调用请求疑似走了 `/beta` 路由 |
+## 目前的限制
 
-工具不会伪造缺失的 `reasoning_content`。伪造内容即使绕过一次请求校验，也会污染会话；报告只给出修复建议，由上层 harness 保留真实原始响应。
+- 这是请求检查器，不是 benchmark，也不会判断回答质量。
+- 没有内置 tokenizer，所以只做静态的 `max_tokens` 检查，不给出假装精确的 token 数。
+- OpenRouter、vLLM、SGLang 和其他兼容接口可能有自己的行为，目前还没有完整覆盖。
+- DSH 还在 developer preview；如果上游插件接口变化，这里的包装也需要跟着改。
 
-## 设计边界
-
-这是协议体检，不是 benchmark：
-
-1. 只审计输入里实际存在的字段，不会向 DeepSeek 或其他 provider 发请求。
-2. `thinking=auto` 按请求字段和兼容默认值检查；显式关闭时可使用 `--thinking disabled`。
-3. 本版本不内置 tokenizer，只检查 `max_tokens` 的显式性和静态上限，不声称提供精确 token 计数。
-4. OpenRouter、vLLM、SGLang 等中转或本地后端可能有不同协议行为，建议分别保存匿名 fixture。
-
-## 开发与贡献
+## 开发
 
 ```bash
 PYTHONPATH=src python -m unittest discover -s tests -v
@@ -99,15 +84,13 @@ npm test
 npm pack --dry-run
 ```
 
-最有价值的贡献是可复现、已脱敏的真实失败录制，以及 Open WebUI、Cline、OpenCode、本地推理后端等客户端的兼容规则。提交前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
+如果你手上有真实失败记录，欢迎先脱敏，再放进 `fixtures/` 提 issue。最想补的是 Open WebUI、Cline、OpenCode 和本地推理后端的案例。具体要求写在 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-## 社区与资料
+## 相关链接
 
-- [DSH GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions)（插件展示建议发到 Show and tell）
-- [GitHub `dsh-plugin` topic](https://github.com/topics/dsh-plugin)
-- [DSH Discord](https://discord.gg/Ycq5dCaS4)
-- [DeepSeek Discord](https://discord.gg/Tc7c45Zzu5)
+- [DeepSeek Harness / DSH](https://github.com/deepseek-ai/deepseek-harness)
+- [DSH Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions)
 - [DeepSeek Tool Calls 文档](https://api-docs.deepseek.com/guides/tool_calls/)
 - [DeepSeek V4 Preview Release](https://api-docs.deepseek.com/news/news260424/)
 
-MIT License
+这是第三方项目，不是 DeepSeek 官方组件。MIT License。

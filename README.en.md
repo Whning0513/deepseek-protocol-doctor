@@ -99,6 +99,8 @@ npm pack --dry-run
 
 If you have a real failure capture, sanitize it and open an issue with a small fixture. Cases from Open WebUI, Cline, OpenCode, and local inference backends would be especially useful. See [CONTRIBUTING.md](CONTRIBUTING.md) for the fixture rules.
 
+Public compatibility reports without a protocol capture are recorded in [COMPATIBILITY.md](COMPATIBILITY.md). They are not sufficient on their own for a finding or fixture.
+
 ## Links
 
 - [DeepSeek Harness / DSH](https://github.com/deepseek-ai/deepseek-harness)

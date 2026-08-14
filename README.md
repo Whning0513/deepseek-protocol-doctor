@@ -99,6 +99,8 @@ npm pack --dry-run
 
 如果你手上有真实失败记录，欢迎先脱敏，再放进 `fixtures/` 提 issue。最想补的是 Open WebUI、Cline、OpenCode 和本地推理后端的案例。具体要求写在 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
+公开但缺少协议 capture 的兼容性报告记录在 [COMPATIBILITY.md](COMPATIBILITY.md)。这些报告不能直接转成 finding 或 fixture。
+
 ## 相关链接
 
 - [DeepSeek Harness / DSH](https://github.com/deepseek-ai/deepseek-harness)

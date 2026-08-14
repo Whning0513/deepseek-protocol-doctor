@@ -29,6 +29,19 @@ dsh plugin --profile demo add github:Whning0513/deepseek-protocol-doctor
 
 插件需要 Python 3.10+。一般能在终端里运行 `python3` 就行；如果 Python 装在别处，可以设置 `DSV4_DOCTOR_PYTHON`。
 
+## 当作 Agent Skill 用
+
+仓库里也带了一个标准 `SKILL.md`：[`skills/deepseek-protocol-doctor`](skills/deepseek-protocol-doctor)。DSH 会从项目的 `.agents/skills/`、`.dsh/skills/`，以及用户目录下的对应位置自动发现它。其他兼容 Agent Skills 的客户端也可以直接复制这个目录。
+
+例如装到当前项目的共享目录：
+
+```bash
+mkdir -p .agents/skills
+cp -R /path/to/deepseek-protocol-doctor/skills/deepseek-protocol-doctor .agents/skills/
+```
+
+Skill 只负责把排查步骤组织好，实际协议检查仍调用同一套 `dsv4-doctor`，没有第二份实现。
+
 ## 命令行用法
 
 ```bash

@@ -1,0 +1,4 @@
+interface:
+  display_name: "DeepSeek Protocol Doctor"
+  short_description: "Diagnose DeepSeek tool loops and streamed tool calls"
+  default_prompt: "Use $deepseek-protocol-doctor to inspect this DeepSeek request or SSE capture and explain the protocol failure."

@@ -29,6 +29,19 @@ Use deepseek_protocol_check to find the tool-calling problem in this request: { 
 
 The plugin needs Python 3.10+. If `python3` is not on PATH, set `DSV4_DOCTOR_PYTHON` to the interpreter you want it to use.
 
+## Use it as an Agent Skill
+
+The repository also includes a standard `SKILL.md` at [`skills/deepseek-protocol-doctor`](skills/deepseek-protocol-doctor). DSH discovers skills from a project's `.agents/skills/` or `.dsh/skills/` directory and their user-level equivalents. Other Agent Skills-compatible clients can copy the same directory.
+
+For example, install it for the current project:
+
+```bash
+mkdir -p .agents/skills
+cp -R /path/to/deepseek-protocol-doctor/skills/deepseek-protocol-doctor .agents/skills/
+```
+
+The skill defines the debugging workflow and calls the existing `dsv4-doctor`; it does not duplicate the protocol checker.
+
 ## Command line
 
 ```bash

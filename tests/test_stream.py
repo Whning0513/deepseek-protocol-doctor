@@ -57,6 +57,78 @@ class StreamTests(unittest.TestCase):
             '{"city": "Berlin"}',
         )
 
+    def test_flowdown_fireworks_capture_preserves_tool_call_boundary(self):
+        """Check the complete public FlowDown online E2E stream capture."""
+        request = json.loads(
+            (
+                ROOT
+                / "fixtures"
+                / "flowdown_fireworks_deepseek_v4_tool_call.request.json"
+            ).read_text(encoding="utf-8")
+        )
+        lines = (
+            ROOT
+            / "fixtures"
+            / "flowdown_fireworks_deepseek_v4_tool_call.sse"
+        ).read_text(encoding="utf-8").splitlines()
+
+        self.assertEqual(request["model"], "accounts/fireworks/models/deepseek-v4-pro")
+        self.assertTrue(request["stream"])
+        self.assertEqual(request["messages"][0]["content"], "<redacted-user-content>")
+        tool = request["tools"][0]["function"]
+        self.assertEqual(tool["name"], "add_numbers")
+        self.assertEqual(tool["parameters"]["required"], ["a", "b"])
+
+        payloads = [
+            json.loads(line[len("data: ") :])
+            for line in lines
+            if line.startswith("data: {")
+        ]
+        self.assertEqual(len(payloads), 38)
+        self.assertEqual(payloads[0]["model"], request["model"])
+        finish_index = next(
+            index
+            for index, payload in enumerate(payloads)
+            if payload["choices"][0].get("finish_reason") == "tool_calls"
+        )
+        usage_index = next(
+            index for index, payload in enumerate(payloads) if payload["choices"] == []
+        )
+        self.assertLess(finish_index, usage_index)
+        self.assertEqual(payloads[usage_index]["usage"]["total_tokens"], 424)
+        self.assertEqual(lines[-1], "data: [DONE]")
+
+        report = inspect_stream(lines, source="flowdown_fireworks_deepseek_v4_tool_call.sse")
+
+        self.assertTrue(report.ok, report.to_dict())
+        self.assertTrue(report.facts["done_seen"])
+        self.assertEqual(report.facts["data_chunks"], 38)
+        self.assertEqual(report.facts["empty_choices"], 1)
+        self.assertEqual(report.facts["finish_reasons"], ["tool_calls"])
+        self.assertEqual(
+            report.facts["reasoning_content"],
+            "The user wants me to use the add_numbers tool with a=17 and b=25. "
+            "I need to emit the tool call and stop on the first turn.",
+        )
+        self.assertEqual(
+            report.facts["tool_calls"],
+            [
+                {
+                    "index": 0,
+                    "id": "call_fixture_0",
+                    "type": "function",
+                    "function": {
+                        "name": "add_numbers",
+                        "arguments": '{"a": 17, "b": 25}',
+                    },
+                }
+            ],
+        )
+        self.assertEqual(
+            [finding.code for finding in report.findings],
+            ["SSE_EMPTY_CHOICES"],
+        )
+
     def test_null_tool_arguments_fragment_does_not_crash(self):
         """Keep the Open WebUI #27195 partial-fragment boundary observable."""
         payload = {

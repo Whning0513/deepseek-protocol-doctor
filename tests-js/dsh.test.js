@@ -36,6 +36,26 @@ test('stream wrapper reassembles interleaved tool calls', async () => {
   assert.equal(report.facts.tool_calls.length, 2)
 })
 
+test('stream wrapper preserves the null-arguments information finding', async () => {
+  const stream = JSON.stringify({
+    choices: [
+      {
+        delta: {
+          tool_calls: [
+            { index: 0, function: { name: 'search_web', arguments: null } },
+          ],
+        },
+      },
+    ],
+  })
+  const report = await inspectStream(stream)
+
+  assert.equal(report.ok, true)
+  assert.deepEqual(report.summary, { errors: 0, warnings: 0, infos: 1 })
+  assert.equal(report.findings[0].code, 'SSE_TOOL_ARGUMENTS_NULL')
+  assert.equal(report.findings[0].severity, 'info')
+})
+
 test('DSH definitions expose two cancellable, read-only tools', async () => {
   const definitions = createToolDefinitions(value => value)
   assert.deepEqual(

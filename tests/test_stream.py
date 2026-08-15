@@ -31,7 +31,7 @@ class StreamTests(unittest.TestCase):
         self.assertEqual(report.facts["content"], "ok")
         self.assertTrue(report.facts["done_seen"])
 
-    def test_openrouter_probe_accepts_usage_with_tool_call_finish(self):
+    def test_openrouter_probe_accepts_usage_with_tool_calls_finish(self):
         """Keep the public chatsune OpenRouter probe boundary offline.
 
         The source publishes representative DeepSeek V4 tool-call fragments,

@@ -27,6 +27,21 @@ class ValidatorTests(unittest.TestCase):
         self.assertIn("TOOL_ARGUMENTS_INVALID", codes)
         self.assertIn("TOOL_RESULT_ORPHAN", codes)
 
+    def test_vllm_50861_public_request_reports_non_object_arguments(self):
+        """Keep the complete vLLM #50861 request reproducer covered.
+
+        The user and tool-result values are redacted from the public curl
+        example; the protocol boundary is the JSON-array argument string.
+        """
+        report = validate_request(
+            fixture("vllm_50861_non_object_arguments.json"),
+            source="vllm_50861_non_object_arguments.json",
+        )
+        codes = {finding.code for finding in report.errors}
+        self.assertFalse(report.ok)
+        self.assertIn("TOOL_ARGUMENTS_NOT_OBJECT", codes)
+        self.assertNotIn("TOOL_ARGUMENTS_INVALID", codes)
+
     def test_explicit_thinking_disabled_allows_missing_reasoning(self):
         payload = fixture("invalid_tool_loop.json")
         payload["extra_body"] = {"thinking": {"type": "disabled"}}

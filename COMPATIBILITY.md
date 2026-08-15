@@ -27,6 +27,12 @@ A useful follow-up capture should include the client and backend versions, model
 - The linked [fix PR #27194](https://github.com/open-webui/open-webui/pull/27194) describes two client-side protections: normalize null arguments before splitting and normalize them during stream-delta merging. This is evidence of an integration boundary observed by that client, not proof that every DeepSeek-compatible endpoint emits null arguments.
 - The fragment is not added to `fixtures/`: it is too small to establish stream ordering or a complete tool loop. A future fixture needs the full sanitized response sequence and enough request context to distinguish a provider payload from client-side reconstruction.
 
+## SGLang mixed content and tool-call response excerpt
+
+- SGLang [#34214](https://github.com/sgl-project/sglang/issues/34214) was opened on 2026-08-10. The report supplies a request shape with `stream=true`, `stream_options.include_usage=true`, `reasoning_effort="max"`, and a weather tool, plus an eight-line response excerpt in which content deltas precede a tool-call delta and `finish_reason: "tool_calls"`.
+- The report calls the response an excerpt and describes content that was missing after the displayed prefix. The public body does not establish the full ordered response, does not include `[DONE]`, and its request prompt is user content. A sanitized in-memory parse accepts the shown shape but cannot infer the missing content or assign the loss to a provider rather than the SGLang serving layer.
+- The excerpt is not added to `fixtures/` and no new finding is inferred from it. A raw response export plus the request and server version would be needed to test this boundary without inventing expected content.
+
 ## vLLM-Ascend DeepSeek V4 stream candidate
 
 - vLLM-Ascend [#12062](https://github.com/vllm-project/vllm-ascend/issues/12062) was opened on 2026-07-15 and updated on 2026-07-16. The report compares a DeepSeek SaaS stream with a local `vllm-ascend` stream and publishes the local engine command, model alias `dsv4`, `deepseek_v4` tokenizer/tool/reasoning parsers, eight local `data:` chunks, a `tool_calls` finish reason, and a final `choices=[]` usage chunk.
@@ -42,6 +48,10 @@ A useful follow-up capture should include the client and backend versions, model
 vLLM [PR #52255](https://github.com/vllm-project/vllm/pull/52255) was opened on 2026-08-14 and remained open on 2026-08-15. The patch attaches request-level tools to an existing system or developer message, restores the checkpoint's [reference golden](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash-0731/blob/main/encoding/test_output_1.txt), and adds four renderer tests. The PR body reports four restored goldens and the new tests passing; that result was not independently rerun here.
 
 This is prompt-rendering parity evidence, not a provider response capture. It supports keeping backend golden tests tied to an upstream reference and recording the exact layer under test. It does not justify changing request-history validation or adding a stream fixture to this repository.
+
+vLLM [PR #50861](https://github.com/vllm-project/vllm/pull/50861) was opened on 2026-08-03 and updated on 2026-08-14. Its public body contains a complete minimal curl request for `deepseek-v4-flash` where `messages[1].tool_calls[0].function.arguments` is the JSON string `"[]"`. The PR reports that vLLM's frontend previously passed the decoded list downstream and returned HTTP 500; its patch coerces non-dict values and returns HTTP 400 for malformed JSON.
+
+The request is a frontend input reproducer, not a provider response. After replacing only the two user-controlled content values with redaction markers, it is stored as [`fixtures/vllm_50861_non_object_arguments.json`](fixtures/vllm_50861_non_object_arguments.json) and covered by `TOOL_ARGUMENTS_NOT_OBJECT`. The fixture preserves the source's model, roles, call ID, function name, and argument shape.
 
 ## DeepSeek V4 tokenizer and renderer reports
 

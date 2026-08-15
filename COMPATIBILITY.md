@@ -53,6 +53,18 @@ vLLM [PR #50861](https://github.com/vllm-project/vllm/pull/50861) was opened on 
 
 The request is a frontend input reproducer, not a provider response. After replacing only the two user-controlled content values with redaction markers, it is stored as [`fixtures/vllm_50861_non_object_arguments.json`](fixtures/vllm_50861_non_object_arguments.json) and covered by `TOOL_ARGUMENTS_NOT_OBJECT`. The fixture preserves the source's model, roles, call ID, function name, and argument shape.
 
+## OpenRouter DeepSeek V4 Pro tool-call probe
+
+- The [chatsune wire-shape research](https://github.com/symphonic-navigator/chatsune/blob/5cf746087823c3cfa51e12fdb03216aec6487e33/devdocs/research/deepseek-v4-wire-shapes.md) records live probes dated 2026-05-10. The document identifies the model as DeepSeek V4 Pro and the tool-call section as an OpenRouter probe. Its checked commit was created on 2026-06-10.
+- The single-call sample shows an initial header with `id`, `type`, `function.name`, and `function.arguments: ""`, followed by argument fragments keyed by `tool_calls[].index`. Its terminal chunk combines `finish_reason: "tool_calls"` with a `usage` object, followed by `data: [DONE]`. The same document gives a parallel-call sample with indices 0 and 1.
+- The source labels these lines “representative wire fragments” and does not publish the complete tool-call request or an unabridged response. The IDs and surrounding response metadata are also reduced. The exact six-line sample is covered by an offline test guardrail, not added to `fixtures/` and not treated as an official OpenRouter or DeepSeek contract.
+
+## Downstream DeepSeek V4 DSML implementation practice
+
+- The [Atlas DeepSeek V4 DSML parser](https://github.com/Avarok-Cybersecurity/atlas/blob/4150884d1cb11fcdc15afe8a737e68f6c8989310/crates/spark-server/src/tool_parser/deepseek_v4_dsml.rs) was checked at a commit created on 2026-08-15. It defines the DSML envelope and invoke/parameter markers, converts typed JSON arguments into DSML parameters, and buffers a stream until the closing marker before flushing. This is parser implementation evidence, not an OpenAI-compatible provider response.
+- The [vMLX encoder contract](https://github.com/jjang-ai/vmlx/blob/bdb970b2d67b1cf1c91e3e5c6b37362bd3a4db46/docs/development/dsv4-encoder-contract.md) was checked at a commit created on 2026-08-15. It documents the DeepSeek V4-Flash-0731 DSML tool-call shape, `<tool_result>` placement, message-role handling, and named tests around message order and reasoning effort. The document points to the model bundle and adapter as its sources; it does not contain an HTTP request or response capture.
+- The [Dynamo DeepSeek-V4-Flash recipe](https://github.com/ai-dynamo/dynamo/blob/415a79c20dc868f8b98e59b4cbfb7bd8ca8c7f7e/recipes/deepseek-v4/deepseek-v4-flash/README.md) was checked at a commit created on 2026-08-15. Its verification command expects `tool_calls`, `function.name`, `function.arguments`, and `finish_reason: "tool_calls"` when `--dyn-tool-call-parser deepseek_v4` is enabled. This is deployment documentation and an expected output shape, not evidence that a live provider emitted a particular response.
+
 ## DeepSeek V4 tokenizer and renderer reports
 
 - vLLM [#51829](https://github.com/vllm-project/vllm/issues/51829) was opened on 2026-08-11 and reports that the Python DeepSeek V4 renderer places request-level tools in a synthetic system message even when an existing system message is present. The report compares Python, Rust, and the checkpoint reference encoder and includes a tokenizer-only reproduction without a GPU. This is a prompt-rendering parity issue, not a request-history or SSE finding in this project.

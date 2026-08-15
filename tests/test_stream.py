@@ -31,6 +31,32 @@ class StreamTests(unittest.TestCase):
         self.assertEqual(report.facts["content"], "ok")
         self.assertTrue(report.facts["done_seen"])
 
+    def test_openrouter_probe_accepts_usage_with_tool_call_finish(self):
+        """Keep the public chatsune OpenRouter probe boundary offline.
+
+        The source publishes representative DeepSeek V4 tool-call fragments,
+        not a complete request/response capture, so this remains a guardrail
+        rather than a provider fixture.
+        """
+        lines = [
+            'data: {"id":"gen-1","choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"call_00_abc","type":"function","function":{"name":"get_weather","arguments":""}}]},"finish_reason":null}]}',
+            'data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{"}}]},"finish_reason":null}]}',
+            'data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\\"city\\": \\"Berlin\\""}}]},"finish_reason":null}]}',
+            'data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"}"}}]},"finish_reason":null}]}',
+            'data: {"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":85,"completion_tokens":22,"completion_tokens_details":{"reasoning_tokens":0}}}',
+            'data: [DONE]',
+        ]
+
+        report = inspect_stream(lines, source="chatsune-openrouter-probe-a")
+
+        self.assertTrue(report.ok, report.to_dict())
+        self.assertTrue(report.facts["done_seen"])
+        self.assertEqual(report.facts["finish_reasons"], ["tool_calls"])
+        self.assertEqual(
+            report.facts["tool_calls"][0]["function"]["arguments"],
+            '{"city": "Berlin"}',
+        )
+
     def test_null_tool_arguments_fragment_does_not_crash(self):
         """Keep the Open WebUI #27195 partial-fragment boundary observable."""
         payload = {

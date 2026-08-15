@@ -1,6 +1,6 @@
 {
   "name": "dsh-deepseek-protocol-doctor",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Offline DeepSeek request, tool-loop, reasoning_content, and SSE diagnostics for DSH",
   "type": "module",
   "main": "./index.js",

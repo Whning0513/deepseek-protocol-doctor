@@ -27,7 +27,7 @@ PYTHONPATH=src python -m dsv4doctor check request.json --format json
 Without an installation:
 
 ```bash
-uvx --from git+https://github.com/Whning0513/deepseek-protocol-doctor.git@v0.1.1 \
+uvx --from git+https://github.com/Whning0513/deepseek-protocol-doctor.git@v0.1.2 \
   dsv4-doctor check request.json --format json
 ```
 

@@ -122,7 +122,13 @@ def inspect_stream(lines: Iterable[str], *, source: str = "<stream>") -> Report:
                 observed_indices.append(index)
                 aggregate = tool_calls.setdefault(
                     index,
-                    {"index": index, "id": None, "type": None, "function": {"name": None, "arguments": ""}},
+                    {
+                        "index": index,
+                        "id": None,
+                        "type": None,
+                        "function": {"name": None, "arguments": ""},
+                        "arguments_null_seen": False,
+                    },
                 )
                 _merge_tool_delta(aggregate, tool_delta)
 
@@ -160,6 +166,14 @@ def inspect_stream(lines: Iterable[str], *, source: str = "<stream>") -> Report:
             },
         }
         normalized_calls.append(normalized)
+        if aggregate.get("arguments_null_seen"):
+            report.add(
+                "SSE_TOOL_ARGUMENTS_NULL",
+                "info",
+                f"streamed tool call {index} contains a null arguments fragment",
+                path=f"tool_calls[{index}].function.arguments",
+                hint="Preserve later string deltas and normalize null before client-side argument splitting.",
+            )
         if arguments:
             try:
                 decoded = json.loads(arguments)
@@ -214,7 +228,9 @@ def _merge_tool_delta(aggregate: dict[str, Any], delta: Mapping[str, Any]) -> No
     if isinstance(name, str) and name and not aggregate["function"].get("name"):
         aggregate["function"]["name"] = name
     arguments = function.get("arguments")
-    if isinstance(arguments, str):
+    if arguments is None and "arguments" in function:
+        aggregate["arguments_null_seen"] = True
+    elif isinstance(arguments, str):
         aggregate["function"]["arguments"] += arguments
 
 

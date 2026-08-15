@@ -56,6 +56,11 @@ class StreamTests(unittest.TestCase):
         self.assertTrue(report.ok, report.to_dict())
         self.assertEqual(report.facts["observed_tool_indices"], [0])
         self.assertEqual(report.facts["tool_calls"][0]["function"]["arguments"], "")
+        self.assertEqual(
+            [finding.code for finding in report.findings],
+            ["SSE_TOOL_ARGUMENTS_NULL"],
+        )
+        self.assertEqual(report.findings[0].severity, "info")
 
 
 if __name__ == "__main__":

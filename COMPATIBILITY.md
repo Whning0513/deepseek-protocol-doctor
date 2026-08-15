@@ -2,7 +2,7 @@
 
 This file records public integration reports that are useful for triage but do not yet contain a protocol capture.
 
-Issue metadata and comments were checked on 2026-08-14 UTC.
+Issue and PR metadata were checked on 2026-08-15 UTC.
 
 ## Cline with Ollama and local DeepSeek models
 
@@ -15,6 +15,12 @@ Current assessment: these reports are behavior evidence, not fixtures. The docto
 
 A useful follow-up capture should include the client and backend versions, model and endpoint shape, thinking configuration, the smallest complete request or SSE/JSONL stream, and the observed HTTP error. Remove credentials, user content, private URLs, local paths, account IDs, and business data before sharing it.
 
+## DeepSeek V4 streaming parser work in SGLang
+
+- SGLang [PR #34600](https://github.com/sgl-project/sglang/pull/34600) was opened on 2026-08-12 and was still open on 2026-08-15. Its body and patch describe four streaming parser boundaries in the DeepSeek V4 DSML detector: retaining a buffer after a parse exception, avoiding `rstrip` character-set truncation, flushing trapped text at stream end, and holding back split DSML tags across chunks.
+- The PR body reports 11 new regression tests and 38 passing unit tests. Those results are author-reported here; this repository did not execute SGLang's suite. The PR body also shows failed latest base and extra CI markers at the time of inspection, so the implementation should be treated as review evidence rather than a merged behavior contract.
+- The detector consumes DeepSeek DSML tags such as `<｜DSML｜tool_calls>`, while this project checks OpenAI-compatible SSE and JSONL payloads. The implementation supports testing practices for chunk boundaries and end-of-stream flushing, but it does not establish `function.arguments: null`, an OpenAI wire shape, or a provider response rule. No fixture or finding is added from this PR.
+
 ## Open WebUI with DeepInfra
 
 - [Open WebUI #27195](https://github.com/open-webui/open-webui/issues/27195) was opened on 2026-07-19 and updated on 2026-07-27. The report identifies Open WebUI v0.10.2, an OpenAI-compatible DeepInfra connection, and DeepSeek V4 models. It includes a representative stream fragment with `function.arguments: null`, the resulting `NoneType has no len()` stack trace, and the affected `_split_tool_calls` path. It does not include a complete ordered SSE/JSONL capture, tool-call ID sequence, or raw HTTP response.
@@ -25,6 +31,10 @@ A useful follow-up capture should include the client and backend versions, model
 
 - vLLM [PR #50296](https://github.com/vllm-project/vllm/pull/50296) was opened on 2026-07-29 and updated on 2026-08-03. It adds per-parser tool-call format conformance tests using fixed raw bytes and mock tokenizers, so the tests run offline without a GPU, model download, or live server. The PR reports 34 passing tests and calibrates the suite by planting one defect at a time.
 - This repository can use the same boundary when a real capture is available: pin the smallest observed wire fragment and keep provider execution outside the test. The PR does not provide a DeepSeek V4 capture for this repository, so it does not justify a new fixture or finding code here.
+
+vLLM [PR #52255](https://github.com/vllm-project/vllm/pull/52255) was opened on 2026-08-14 and remained open on 2026-08-15. The patch attaches request-level tools to an existing system or developer message, restores the checkpoint's [reference golden](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash-0731/blob/main/encoding/test_output_1.txt), and adds four renderer tests. The PR body reports four restored goldens and the new tests passing; that result was not independently rerun here.
+
+This is prompt-rendering parity evidence, not a provider response capture. It supports keeping backend golden tests tied to an upstream reference and recording the exact layer under test. It does not justify changing request-history validation or adding a stream fixture to this repository.
 
 ## DeepSeek V4 tokenizer and renderer reports
 

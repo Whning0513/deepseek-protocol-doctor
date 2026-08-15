@@ -90,6 +90,14 @@ The doctor will not invent missing `reasoning_content`. That field should be the
 - OpenRouter, vLLM, SGLang, and other compatible endpoints have behavior that is not fully covered yet.
 - DSH is still a developer preview. This wrapper may need updates as its plugin API changes.
 
+## Compatibility lab
+
+[`fixtures/manifest.json`](fixtures/manifest.json) indexes the request and stream fixtures. Each entry identifies a synthetic baseline, a public reproducer, or a public provider capture with a fixed source ref, and records the current doctor result. The registry test runs offline without a GPU, model download, or provider credentials:
+
+```bash
+PYTHONPATH=src python -m unittest tests.test_registry -v
+```
+
 ## Development
 
 ```bash

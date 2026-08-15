@@ -15,6 +15,16 @@ Before committing a capture, remove API keys, cookies, authorization headers, us
 
 Never submit secrets, even in a private issue. The doctor is offline, but fixtures committed to Git are public and durable.
 
+## Fixture registry
+
+Every file added under `fixtures/` needs an entry in [`fixtures/manifest.json`](fixtures/manifest.json). The registry separates three evidence levels:
+
+- `synthetic` is a local baseline or guardrail and has no external source.
+- `public_reproducer` points to a public client or backend report. It is not a provider contract.
+- `public_provider_capture` points to a fixed public capture ref and uses `capture_id` when request and response files belong together.
+
+Public entries record the source URL, checked date, layer under test, and redactions. The `expected` section records the current doctor result and is checked offline. Update it when a deliberate rule change changes a fixture's report.
+
 ## Protocol rules
 
 A new rule should include:
@@ -31,6 +41,7 @@ Warnings should describe risky but potentially valid input. Errors should be res
 
 ```bash
 PYTHONPATH=src python -m unittest discover -s tests -v
+PYTHONPATH=src python -m unittest tests.test_registry -v
 npm test
 npm pack --dry-run
 ```

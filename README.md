@@ -90,6 +90,14 @@ dsv4-doctor check request.json --format sarif > result.sarif
 - OpenRouter、vLLM、SGLang 和其他兼容接口可能有自己的行为，目前还没有完整覆盖。
 - DSH 还在 developer preview；如果上游插件接口变化，这里的包装也需要跟着改。
 
+## 兼容性实验室
+
+仓库用 [`fixtures/manifest.json`](fixtures/manifest.json) 索引 request 和 stream fixture。每条记录标明它是合成基线、公开 reproducer，还是带固定来源 ref 的公开 provider capture，并记录当前 doctor 结果。registry 测试只在本地运行，不需要 GPU、模型下载或 provider 凭据：
+
+```bash
+PYTHONPATH=src python -m unittest tests.test_registry -v
+```
+
 ## 开发
 
 ```bash

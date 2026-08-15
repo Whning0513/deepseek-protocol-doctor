@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "description": "Offline registry for DeepSeek request and stream fixtures.",
+  "entries": [
+    {
+      "path": "fixtures/valid_tool_loop.json",
+      "kind": "request",
+      "format": "json",
+      "evidence": "synthetic",
+      "expected": {
+        "ok": true,
+        "errors": [],
+        "warnings": [],
+        "infos": [],
+        "facts": {
+          "model": "deepseek-v4-pro",
+          "tool_call_count": 1,
+          "pending_tool_call_count": 0
+        }
+      }
+    },
+    {
+      "path": "fixtures/invalid_tool_loop.json",
+      "kind": "request",
+      "format": "json",
+      "evidence": "synthetic",
+      "expected": {
+        "ok": false,
+        "errors": [
+          "REASONING_CONTENT_MISSING",
+          "TOOL_ARGUMENTS_INVALID",
+          "TOOL_RESULT_ORPHAN"
+        ],
+        "warnings": [
+          "MAX_TOKENS_MISSING",
+          "THINKING_NOT_EXPLICIT",
+          "TOOL_RESULTS_PENDING"
+        ],
+        "infos": [],
+        "facts": {
+          "model": "deepseek-v4-pro",
+          "tool_call_count": 1,
+          "pending_tool_call_count": 1
+        }
+      }
+    },
+    {
+      "path": "fixtures/stream_interleaved.jsonl",
+      "kind": "stream",
+      "format": "jsonl",
+      "evidence": "synthetic",
+      "expected": {
+        "ok": true,
+        "errors": [],
+        "warnings": [],
+        "infos": [
+          "SSE_EMPTY_CHOICES",
+          "SSE_TOOL_INDICES_INTERLEAVED"
+        ],
+        "facts": {
+          "data_chunks": 8,
+          "done_seen": true,
+          "empty_choices": 1,
+          "finish_reasons": [
+            "tool_calls",
+            "tool_calls"
+          ],
+          "tool_names": [
+            "lookup",
+            "lookup"
+          ],
+          "interleaved_tool_indices": true
+        }
+      }
+    },
+    {
+      "path": "fixtures/vllm_50861_non_object_arguments.json",
+      "kind": "request",
+      "format": "json",
+      "evidence": "public_reproducer",
+      "source": {
+        "url": "https://github.com/vllm-project/vllm/pull/50861",
+        "ref": "61b0b93a9658d5dea4015fcf0b41c4da7286d322",
+        "checked_on": "2026-08-15",
+        "layer": "frontend_request_reproducer"
+      },
+      "redactions": [
+        "messages[0].content",
+        "messages[2].content"
+      ],
+      "expected": {
+        "ok": false,
+        "errors": [
+          "REASONING_CONTENT_MISSING",
+          "TOOL_ARGUMENTS_NOT_OBJECT"
+        ],
+        "warnings": [
+          "MAX_TOKENS_MISSING",
+          "THINKING_NOT_EXPLICIT"
+        ],
+        "infos": [],
+        "facts": {
+          "model": "deepseek-v4-flash",
+          "tool_call_count": 1,
+          "pending_tool_call_count": 0
+        }
+      }
+    },
+    {
+      "capture_id": "flowdown-fireworks-deepseek-v4-tool-call",
+      "path": "fixtures/flowdown_fireworks_deepseek_v4_tool_call.request.json",
+      "kind": "request",
+      "format": "json",
+      "evidence": "public_provider_capture",
+      "source": {
+        "url": "https://github.com/Lakr233/FlowDown/blob/c482f8432e411c09a71c803bc24295970c86d0ce/Resources/DevKit/fixtures/online_e2e/cases/tool_add_numbers_call.request.json",
+        "ref": "c482f8432e411c09a71c803bc24295970c86d0ce",
+        "checked_on": "2026-08-15",
+        "layer": "online_e2e_provider_capture",
+        "provider": "Fireworks",
+        "model": "accounts/fireworks/models/deepseek-v4-pro"
+      },
+      "redactions": [
+        "messages[0].content"
+      ],
+      "expected": {
+        "ok": false,
+        "errors": [
+          "STRICT_ADDITIONAL_PROPERTIES"
+        ],
+        "warnings": [
+          "MAX_TOKENS_MISSING"
+        ],
+        "infos": [],
+        "facts": {
+          "model": "accounts/fireworks/models/deepseek-v4-pro",
+          "tool_call_count": 0,
+          "pending_tool_call_count": 0
+        }
+      }
+    },
+    {
+      "capture_id": "flowdown-fireworks-deepseek-v4-tool-call",
+      "path": "fixtures/flowdown_fireworks_deepseek_v4_tool_call.sse",
+      "kind": "stream",
+      "format": "sse",
+      "evidence": "public_provider_capture",
+      "source": {
+        "url": "https://github.com/Lakr233/FlowDown/blob/c482f8432e411c09a71c803bc24295970c86d0ce/Resources/DevKit/fixtures/online_e2e/cases/tool_add_numbers_call.response.sse",
+        "ref": "c482f8432e411c09a71c803bc24295970c86d0ce",
+        "checked_on": "2026-08-15",
+        "layer": "online_e2e_provider_capture",
+        "provider": "Fireworks",
+        "model": "accounts/fireworks/models/deepseek-v4-pro"
+      },
+      "redactions": [
+        "completion id",
+        "tool call id"
+      ],
+      "expected": {
+        "ok": true,
+        "errors": [],
+        "warnings": [],
+        "infos": [
+          "SSE_EMPTY_CHOICES"
+        ],
+        "facts": {
+          "data_chunks": 38,
+          "done_seen": true,
+          "empty_choices": 1,
+          "finish_reasons": [
+            "tool_calls"
+          ],
+          "tool_names": [
+            "add_numbers"
+          ]
+        }
+      }
+    }
+  ]
+}

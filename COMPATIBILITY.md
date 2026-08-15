@@ -49,7 +49,7 @@ vLLM [PR #52255](https://github.com/vllm-project/vllm/pull/52255) was opened on 
 
 This is prompt-rendering parity evidence, not a provider response capture. It supports keeping backend golden tests tied to an upstream reference and recording the exact layer under test. It does not justify changing request-history validation or adding a stream fixture to this repository.
 
-vLLM [PR #50861](https://github.com/vllm-project/vllm/pull/50861) was opened on 2026-08-03 and updated on 2026-08-14. Its public body contains a complete minimal curl request for `deepseek-v4-flash` where `messages[1].tool_calls[0].function.arguments` is the JSON string `"[]"`. The PR reports that vLLM's frontend previously passed the decoded list downstream and returned HTTP 500; its patch coerces non-dict values and returns HTTP 400 for malformed JSON.
+vLLM [PR #50861](https://github.com/vllm-project/vllm/pull/50861) was opened on 2026-08-03 and updated on 2026-08-14. The checked PR head is `61b0b93a9658d5dea4015fcf0b41c4da7286d322`. Its public body contains a complete minimal curl request for `deepseek-v4-flash` where `messages[1].tool_calls[0].function.arguments` is the JSON string `"[]"`. The PR reports that vLLM's frontend previously passed the decoded list downstream and returned HTTP 500; its patch coerces non-dict values and returns HTTP 400 for malformed JSON.
 
 The request is a frontend input reproducer, not a provider response. After replacing only the two user-controlled content values with redaction markers, it is stored as [`fixtures/vllm_50861_non_object_arguments.json`](fixtures/vllm_50861_non_object_arguments.json) and covered by `TOOL_ARGUMENTS_NOT_OBJECT`. The fixture preserves the source's model, roles, call ID, function name, and argument shape.
 

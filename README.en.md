@@ -69,6 +69,7 @@ Exit code 1 means the report contains an error. Warnings do not fail CI unless `
 - tool messages that do not match a `tool_call_id`, and tool loops that move on before every result arrives;
 - missing original `reasoning_content` in a thinking tool loop;
 - `function.arguments` parsed before all stream deltas arrive;
+- a stream fragment explicitly carries `function.arguments: null` (`SSE_TOOL_ARGUMENTS_NULL`, informational only);
 - interleaved tool-call deltas appended in arrival order instead of grouped by index;
 - missing `required` or `additionalProperties: false` in strict schemas;
 - a few easy-to-miss settings around `max_tokens`, thinking mode, and `/beta` routes.

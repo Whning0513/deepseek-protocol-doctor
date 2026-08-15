@@ -69,6 +69,7 @@ PYTHONPATH=src python -m dsv4doctor check fixtures/valid_tool_loop.json
 - tool message 找不到对应的 `tool_call_id`，或者一轮调用还没收齐结果就开始了下一轮；
 - thinking 工具循环里，assistant 原样返回的 `reasoning_content` 被客户端丢掉；
 - `function.arguments` 还没拼完就被当成 JSON 解析；
+- 流片段显式给出 `function.arguments: null` 时，记录 `SSE_TOOL_ARGUMENTS_NULL` 信息，不把这个片段单独判为错误；
 - 多个流式 tool call 的 delta 交错到达，客户端却按到达顺序直接追加；
 - strict schema 漏了 `required` 或 `additionalProperties: false`；
 - `max_tokens`、thinking mode 和 `/beta` 路由里几个容易忽略的配置。

@@ -27,6 +27,13 @@ A useful follow-up capture should include the client and backend versions, model
 - The linked [fix PR #27194](https://github.com/open-webui/open-webui/pull/27194) describes two client-side protections: normalize null arguments before splitting and normalize them during stream-delta merging. This is evidence of an integration boundary observed by that client, not proof that every DeepSeek-compatible endpoint emits null arguments.
 - The fragment is not added to `fixtures/`: it is too small to establish stream ordering or a complete tool loop. A future fixture needs the full sanitized response sequence and enough request context to distinguish a provider payload from client-side reconstruction.
 
+## vLLM-Ascend DeepSeek V4 stream candidate
+
+- vLLM-Ascend [#12062](https://github.com/vllm-project/vllm-ascend/issues/12062) was opened on 2026-07-15 and updated on 2026-07-16. The report compares a DeepSeek SaaS stream with a local `vllm-ascend` stream and publishes the local engine command, model alias `dsv4`, `deepseek_v4` tokenizer/tool/reasoning parsers, eight local `data:` chunks, a `tool_calls` finish reason, and a final `choices=[]` usage chunk.
+- In the local sequence, the first delta supplies the tool-call ID, type, name, and empty arguments. Later deltas set ID, type, and name to `null` while appending argument fragments. The source body displays Markdown `**` markers inside three JSON lines, has no `[DONE]` line or request body, and places SaaS and local outputs in one issue body.
+- Removing those `**` markers in memory and checking the eight local lines produced one aggregated tool call, `finish_reason: "tool_calls"`, the argument object `{"query":"天花板开裂了","top_k":5}`, and only the tolerated `SSE_EMPTY_CHOICES` information. This confirms the parser can inspect the published shape, not that the normalized text is an exact wire capture.
+- The normalized lines are not added to `fixtures/`. `tests/test_stream.py` contains a redacted guardrail using the same null-metadata and argument-delta shape. A fixture needs the unrendered response, the request/tool definitions, and a clear boundary between the SaaS and local streams.
+
 ## Maintenance practice from vLLM
 
 - vLLM [PR #50296](https://github.com/vllm-project/vllm/pull/50296) was opened on 2026-07-29 and updated on 2026-08-03. It adds per-parser tool-call format conformance tests using fixed raw bytes and mock tokenizers, so the tests run offline without a GPU, model download, or live server. The PR reports 34 passing tests and calibrates the suite by planting one defect at a time.

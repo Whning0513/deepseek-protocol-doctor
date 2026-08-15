@@ -62,6 +62,38 @@ class StreamTests(unittest.TestCase):
         )
         self.assertEqual(report.findings[0].severity, "info")
 
+    def test_vllm_ascend_null_delta_metadata_is_tolerated(self):
+        """Keep the public vLLM-Ascend #12062 stream shape covered.
+
+        The values are shortened and redacted from the public report; this is
+        a parser guardrail, not a provider fixture. The report's local stream
+        uses an initial tool-call identity delta, null identity fields on
+        later argument deltas, and a final choices=[] usage chunk.
+        """
+        lines = [
+            'data: {"choices":[{"index":0,"delta":{"content":null,"tool_calls":[{"id":"call_public_0","type":"function","index":0,"function":{"name":"lookup","arguments":""}}]},"finish_reason":null}]}',
+            'data: {"choices":[{"index":0,"delta":{"content":null,"tool_calls":[{"id":null,"type":null,"index":0,"function":{"name":null,"arguments":"{\\"query\\":\\"redacted\\""}}]},"finish_reason":null}]}',
+            'data: {"choices":[{"index":0,"delta":{"content":null,"tool_calls":[{"id":null,"type":null,"index":0,"function":{"name":null,"arguments":",\\"top_k\\":5}"}}]},"finish_reason":null}]}',
+            'data: {"choices":[{"index":0,"delta":{"content":null},"finish_reason":"tool_calls"}]}',
+            'data: {"choices":[],"usage":{"prompt_tokens":1,"total_tokens":2}}',
+        ]
+
+        report = inspect_stream(lines, source="vllm-ascend-12062-shape")
+
+        self.assertTrue(report.ok, report.to_dict())
+        self.assertEqual(report.facts["finish_reasons"], ["tool_calls"])
+        self.assertEqual(report.facts["tool_calls"][0]["id"], "call_public_0")
+        self.assertEqual(report.facts["tool_calls"][0]["function"]["name"], "lookup")
+        self.assertEqual(
+            report.facts["tool_calls"][0]["function"]["arguments"],
+            '{"query":"redacted","top_k":5}',
+        )
+        self.assertEqual(report.facts["empty_choices"], 1)
+        self.assertEqual(
+            [finding.code for finding in report.findings],
+            ["SSE_EMPTY_CHOICES"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

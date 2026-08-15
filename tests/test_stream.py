@@ -31,6 +31,32 @@ class StreamTests(unittest.TestCase):
         self.assertEqual(report.facts["content"], "ok")
         self.assertTrue(report.facts["done_seen"])
 
+    def test_null_tool_arguments_fragment_does_not_crash(self):
+        """Keep the Open WebUI #27195 partial-fragment boundary observable."""
+        payload = {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [
+                            {
+                                "index": 0,
+                                "function": {
+                                    "name": "search_web",
+                                    "arguments": None,
+                                },
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+        report = inspect_stream(
+            [json.dumps(payload)], source="open-webui-27195-snippet"
+        )
+        self.assertTrue(report.ok, report.to_dict())
+        self.assertEqual(report.facts["observed_tool_indices"], [0])
+        self.assertEqual(report.facts["tool_calls"][0]["function"]["arguments"], "")
+
 
 if __name__ == "__main__":
     unittest.main()

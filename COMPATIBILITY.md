@@ -2,7 +2,17 @@
 
 This file records public integration reports that are useful for triage but do not yet contain a protocol capture.
 
-Issue and PR metadata were checked on 2026-08-15 UTC.
+Issue and PR metadata were checked on 2026-08-16 UTC.
+
+## DeepSeek V4 agent-loop premature termination
+
+- DeepSeek [DeepSeek-V3 #1554](https://github.com/deepseek-ai/DeepSeek-V3/issues/1554) was opened on 2026-08-09 and remained open when checked on 2026-08-16. The report describes `deepseek-v4-flash` returning a short natural-language status message with `finish_reason: stop` and no tool call inside an agent loop. It says the behavior was observed in streaming and non-streaming Chat Completions, with and without `reasoning_effort`, and at several `max_tokens` settings. The issue body does not include a complete request, response, HTTP metadata, or a reproducible raw capture.
+- A 2026-08-09 follow-up by the reporter ([comment 5230508113](https://github.com/deepseek-ai/DeepSeek-V3/issues/1554#issuecomment-5230508113)) says the requests pass through CLIProxyAPI to `api.deepseek.com` and that the observation came from upstream request logs. It still does not publish the payload, response body, model response ID, or an ordered SSE stream. This is a client/agent report with stated upstream provenance, not a provider fixture.
+- A 2026-08-13 comment ([5276120665](https://github.com/deepseek-ai/DeepSeek-V3/issues/1554#issuecomment-5276120665)) proposes a host-side completion gate: reject a short status utterance after `finish_reason: stop` when no tool call or concrete result is present, then apply a bounded retry budget. This is a third-party design proposal; this repository has not received code, a capture, or a measured false-positive rate for it. The checker therefore does not add a finding based on the proposal.
+- A 2026-08-16 comment ([5306438650](https://github.com/deepseek-ai/DeepSeek-V3/issues/1554#issuecomment-5306438650)) describes a separate agent-layer observation involving structurally valid but semantically empty tool calls and post-execution read-back. That comment is also an implementation report without a request/response capture. It should not be used to infer a provider rule.
+- The 24 fetched comments were authored by `HappinessEV`, `Lady-Lin`, `icophy`, `qingkong66`, and `yun520-1`; no comment identifies a DeepSeek organization account. The issue remained open at the checked time. No maintainer-confirmed behavior or official workaround was found.
+
+Current assessment: #1554 supports documenting a possible host-level completion-gate compatibility track, not changing request validation or adding a stream fixture. A useful follow-up would include the smallest sanitized request, the complete raw Chat Completions response for both streaming and non-streaming modes, HTTP status/headers, model/API version information, and enough repeated cases to measure whether a gate wrongly retries valid final answers. Keep any retry policy in the host/orchestrator layer; the offline protocol checker cannot infer task completeness from a short assistant message alone.
 
 ## Cline with Ollama and local DeepSeek models
 

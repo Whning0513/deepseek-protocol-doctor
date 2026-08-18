@@ -31,6 +31,39 @@ class StreamTests(unittest.TestCase):
         self.assertEqual(report.facts["content"], "ok")
         self.assertTrue(report.facts["done_seen"])
 
+    def test_deepseek_documented_resource_finish_reason_is_preserved(self):
+        """Keep the official ``insufficient_system_resource`` value observable."""
+        payload = {
+            "choices": [
+                {
+                    "delta": {},
+                    "finish_reason": "insufficient_system_resource",
+                }
+            ]
+        }
+        report = inspect_stream(
+            [json.dumps(payload)], source="deepseek-api-finish-reasons"
+        )
+        self.assertTrue(report.ok, report.to_dict())
+        self.assertEqual(
+            report.facts["finish_reasons"], ["insufficient_system_resource"]
+        )
+        self.assertEqual(report.findings, [])
+
+    def test_undocumented_finish_reason_is_a_warning(self):
+        payload = {
+            "choices": [{"delta": {}, "finish_reason": "provider_retry"}]
+        }
+        report = inspect_stream(
+            [json.dumps(payload)], source="undocumented-finish-reason"
+        )
+        self.assertTrue(report.ok, report.to_dict())
+        self.assertEqual(
+            [finding.code for finding in report.warnings],
+            ["SSE_FINISH_REASON_UNKNOWN"],
+        )
+        self.assertEqual(report.facts["finish_reasons"], ["provider_retry"])
+
     def test_null_tool_arguments_fragment_does_not_crash(self):
         """Keep the Open WebUI #27195 partial-fragment boundary observable."""
         payload = {

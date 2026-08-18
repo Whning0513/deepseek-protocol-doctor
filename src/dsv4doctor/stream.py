@@ -7,6 +7,17 @@ from typing import Any
 from .model import Report
 
 
+DOCUMENTED_FINISH_REASONS = frozenset(
+    {
+        "stop",
+        "length",
+        "content_filter",
+        "tool_calls",
+        "insufficient_system_resource",
+    }
+)
+
+
 def inspect_stream(lines: Iterable[str], *, source: str = "<stream>") -> Report:
     """Inspect an OpenAI-compatible SSE capture without making a network call."""
 
@@ -75,6 +86,17 @@ def inspect_stream(lines: Iterable[str], *, source: str = "<stream>") -> Report:
             finish_reason = choice.get("finish_reason")
             if isinstance(finish_reason, str):
                 finish_reasons.append(finish_reason)
+                if finish_reason not in DOCUMENTED_FINISH_REASONS:
+                    report.add(
+                        "SSE_FINISH_REASON_UNKNOWN",
+                        "warning",
+                        f"finish_reason {finish_reason!r} is not listed in the DeepSeek Chat Completions schema",
+                        path=f"line {line_number}.choices[{choice_index}].finish_reason",
+                        hint=(
+                            "Check the serving provider's documented response contract before treating "
+                            "this value as an error."
+                        ),
+                    )
             delta = choice.get("delta") or {}
             if not isinstance(delta, Mapping):
                 report.add(

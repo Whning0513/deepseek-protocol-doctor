@@ -2,7 +2,7 @@
 
 This file records public integration reports that are useful for triage but do not yet contain a protocol capture.
 
-Issue and PR metadata were checked on 2026-08-16 UTC.
+Issue and PR metadata were checked on 2026-08-18 UTC.
 
 ## DeepSeek V4 agent-loop premature termination
 
@@ -13,6 +13,12 @@ Issue and PR metadata were checked on 2026-08-16 UTC.
 - The 24 fetched comments were authored by `HappinessEV`, `Lady-Lin`, `icophy`, `qingkong66`, and `yun520-1`; no comment identifies a DeepSeek organization account. The issue remained open at the checked time. No maintainer-confirmed behavior or official workaround was found.
 
 Current assessment: #1554 supports documenting a possible host-level completion-gate compatibility track, not changing request validation or adding a stream fixture. A useful follow-up would include the smallest sanitized request, the complete raw Chat Completions response for both streaming and non-streaming modes, HTTP status/headers, model/API version information, and enough repeated cases to measure whether a gate wrongly retries valid final answers. Keep any retry policy in the host/orchestrator layer; the offline protocol checker cannot infer task completeness from a short assistant message alone.
+
+## DeepSeek Chat Completions finish reasons
+
+- The official [Chat Completions API reference](https://api-docs.deepseek.com/api/create-chat-completion/) checked on 2026-08-18 lists `max_tokens` as the request's generation limit. It does not list `max_completion_tokens` on that reference page. This supports keeping the current `MAX_TOKENS_MISSING` observation for a DeepSeek request that supplies only the latter; the FlowDown capture uses a Fireworks endpoint and is a separate provider contract.
+- The same reference enumerates `stop`, `length`, `content_filter`, `tool_calls`, and `insufficient_system_resource` as response `finish_reason` values. It describes the last value as an interruption caused by insufficient inference-system resources. This is schema evidence, not a provider capture.
+- The stream checker now preserves the documented `insufficient_system_resource` value without a finding and emits the warning `SSE_FINISH_REASON_UNKNOWN` for a string outside that set. Unknown values remain non-fatal because an OpenAI-compatible serving layer may extend the response contract; callers can use `--fail-on-warning` when undocumented values should block a check.
 
 ## Cline with Ollama and local DeepSeek models
 

@@ -7,6 +7,69 @@ from typing import Any
 from .model import Report
 
 
+def _iter_payload_lines(lines: Iterable[str]) -> Iterable[tuple[int, str]]:
+    """Yield logical SSE/JSONL payloads with their first source line.
+
+    OpenAI captures usually put one JSON object on each ``data:`` line, but
+    SSE also permits one event's data to be split across several lines.  A
+    malformed first fragment is buffered until it becomes valid JSON or the
+    event ends at a blank line.
+    """
+    buffered: list[str] = []
+    start_line: int | None = None
+
+    for line_number, raw_line in enumerate(lines, start=1):
+        stripped = raw_line.rstrip("\r\n").strip()
+        if not stripped:
+            if buffered:
+                yield start_line or line_number, "\n".join(buffered)
+                buffered = []
+                start_line = None
+            continue
+        if stripped.startswith(":") or stripped.startswith(("event:", "id:", "retry:")):
+            continue
+
+        if stripped.startswith("data:"):
+            data = stripped[5:]
+            if data.startswith(" "):
+                data = data[1:]
+            if data.strip() == "[DONE]":
+                if buffered:
+                    yield start_line or line_number, "\n".join(buffered)
+                    buffered = []
+                    start_line = None
+                yield line_number, "[DONE]"
+                continue
+            if buffered:
+                buffered.append(data)
+                candidate = "\n".join(buffered)
+                try:
+                    json.loads(candidate)
+                except json.JSONDecodeError:
+                    continue
+                yield start_line or line_number, candidate
+                buffered = []
+                start_line = None
+                continue
+            try:
+                json.loads(data)
+            except json.JSONDecodeError:
+                buffered = [data]
+                start_line = line_number
+            else:
+                yield line_number, data
+            continue
+
+        if buffered:
+            yield start_line or line_number, "\n".join(buffered)
+            buffered = []
+            start_line = None
+        yield line_number, stripped
+
+    if buffered:
+        yield start_line or 1, "\n".join(buffered)
+
+
 def inspect_stream(lines: Iterable[str], *, source: str = "<stream>") -> Report:
     """Inspect an OpenAI-compatible SSE capture without making a network call."""
 
@@ -20,12 +83,9 @@ def inspect_stream(lines: Iterable[str], *, source: str = "<stream>") -> Report:
     empty_choices = 0
     done_seen = False
 
-    for line_number, raw_line in enumerate(lines, start=1):
-        line = raw_line.strip()
+    for line_number, line in _iter_payload_lines(lines):
         if not line:
             continue
-        if line.startswith("data:"):
-            line = line[5:].strip()
         if line == "[DONE]":
             done_seen = True
             continue

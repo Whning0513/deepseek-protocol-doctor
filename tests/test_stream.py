@@ -31,6 +31,21 @@ class StreamTests(unittest.TestCase):
         self.assertEqual(report.facts["content"], "ok")
         self.assertTrue(report.facts["done_seen"])
 
+    def test_multiline_sse_data_event_is_joined_before_json_parsing(self):
+        lines = [
+            'data: {"choices":[{"delta":{"content":"hello"},',
+            'data: "finish_reason":"stop"}]}',
+            "",
+            "data: [DONE]",
+        ]
+
+        report = inspect_stream(lines, source="multiline-sse")
+
+        self.assertTrue(report.ok, report.to_dict())
+        self.assertEqual(report.facts["data_chunks"], 1)
+        self.assertEqual(report.facts["content"], "hello")
+        self.assertTrue(report.facts["done_seen"])
+
     def test_null_tool_arguments_fragment_does_not_crash(self):
         """Keep the Open WebUI #27195 partial-fragment boundary observable."""
         payload = {

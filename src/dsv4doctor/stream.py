@@ -76,7 +76,7 @@ def inspect_stream(lines: Iterable[str], *, source: str = "<stream>") -> Report:
     report = Report(kind="stream", source=source)
     content_parts: list[str] = []
     reasoning_parts: list[str] = []
-    tool_calls: dict[int, dict[str, Any]] = {}
+    choice_states: dict[int, dict[str, Any]] = {}
     observed_indices: list[int] = []
     finish_reasons: list[str] = []
     data_chunks = 0
@@ -123,18 +123,38 @@ def inspect_stream(lines: Iterable[str], *, source: str = "<stream>") -> Report:
             )
             continue
 
-        for choice_index, choice in enumerate(choices):
+        for choice_position, choice in enumerate(choices):
             if not isinstance(choice, Mapping):
                 report.add(
                     "SSE_CHOICE_INVALID",
                     "error",
                     "each stream choice must be an object",
-                    path=f"line {line_number}.choices[{choice_index}]",
+                    path=f"line {line_number}.choices[{choice_position}]",
                 )
                 continue
+            choice_index = choice.get("index", choice_position)
+            if isinstance(choice_index, bool) or not isinstance(choice_index, int) or choice_index < 0:
+                report.add(
+                    "SSE_CHOICE_INDEX_INVALID",
+                    "error",
+                    "stream choice index must be a non-negative integer",
+                    path=f"line {line_number}.choices[{choice_position}].index",
+                )
+                continue
+            choice_state = choice_states.setdefault(
+                choice_index,
+                {
+                    "content_parts": [],
+                    "reasoning_parts": [],
+                    "finish_reasons": [],
+                    "tool_calls": {},
+                    "observed_indices": [],
+                },
+            )
             finish_reason = choice.get("finish_reason")
             if isinstance(finish_reason, str):
                 finish_reasons.append(finish_reason)
+                choice_state["finish_reasons"].append(finish_reason)
             delta = choice.get("delta") or {}
             if not isinstance(delta, Mapping):
                 report.add(
@@ -148,9 +168,11 @@ def inspect_stream(lines: Iterable[str], *, source: str = "<stream>") -> Report:
             content = delta.get("content")
             if isinstance(content, str):
                 content_parts.append(content)
+                choice_state["content_parts"].append(content)
             reasoning = delta.get("reasoning_content")
             if isinstance(reasoning, str):
                 reasoning_parts.append(reasoning)
+                choice_state["reasoning_parts"].append(reasoning)
 
             deltas = delta.get("tool_calls") or []
             if not isinstance(deltas, list):
@@ -180,7 +202,8 @@ def inspect_stream(lines: Iterable[str], *, source: str = "<stream>") -> Report:
                     )
                     continue
                 observed_indices.append(index)
-                aggregate = tool_calls.setdefault(
+                choice_state["observed_indices"].append(index)
+                aggregate = choice_state["tool_calls"].setdefault(
                     index,
                     {
                         "index": index,
@@ -203,7 +226,10 @@ def inspect_stream(lines: Iterable[str], *, source: str = "<stream>") -> Report:
             hint="Do not assume every SSE chunk contains a choice.",
         )
 
-    interleaved = _is_interleaved(observed_indices)
+    interleaved = any(
+        _is_interleaved(state["observed_indices"])
+        for state in choice_states.values()
+    )
     if interleaved:
         report.add(
             "SSE_TOOL_INDICES_INTERLEAVED",
@@ -212,53 +238,79 @@ def inspect_stream(lines: Iterable[str], *, source: str = "<stream>") -> Report:
             hint="Aggregate by tool-call index rather than appending by arrival order.",
         )
 
+    multiple_choices = len(choice_states) > 1
+    if multiple_choices:
+        report.add(
+            "SSE_MULTIPLE_CHOICES",
+            "info",
+            "stream contains multiple completion choices; inspect choice_facts to keep alternatives separate",
+            hint="Do not execute tool calls from every choice as though they belonged to one response.",
+        )
+
     normalized_calls: list[dict[str, Any]] = []
-    for index in sorted(tool_calls):
-        aggregate = tool_calls[index]
-        arguments = aggregate["function"]["arguments"]
-        normalized = {
-            "index": index,
-            "id": aggregate.get("id"),
-            "type": aggregate.get("type"),
-            "function": {
-                "name": aggregate["function"].get("name"),
-                "arguments": arguments,
-            },
-        }
-        normalized_calls.append(normalized)
-        if aggregate.get("arguments_null_seen"):
-            report.add(
-                "SSE_TOOL_ARGUMENTS_NULL",
-                "info",
-                f"streamed tool call {index} contains a null arguments fragment",
-                path=f"tool_calls[{index}].function.arguments",
-                hint="Preserve later string deltas and normalize null before client-side argument splitting.",
-            )
-        if arguments:
-            try:
-                decoded = json.loads(arguments)
-            except json.JSONDecodeError:
-                if "length" in finish_reasons:
-                    severity = "warning"
-                    hint = "The model stopped at the token limit; do not execute an incomplete tool call."
-                else:
-                    severity = "error"
-                    hint = "Wait for all argument deltas before parsing the tool call."
+    choice_facts: list[dict[str, Any]] = []
+    for choice_index in sorted(choice_states):
+        state = choice_states[choice_index]
+        choice_calls: list[dict[str, Any]] = []
+        for index in sorted(state["tool_calls"]):
+            aggregate = state["tool_calls"][index]
+            arguments = aggregate["function"]["arguments"]
+            normalized = {
+                "index": index,
+                "id": aggregate.get("id"),
+                "type": aggregate.get("type"),
+                "function": {
+                    "name": aggregate["function"].get("name"),
+                    "arguments": arguments,
+                },
+            }
+            if multiple_choices:
+                normalized["choice_index"] = choice_index
+            normalized_calls.append(normalized)
+            choice_calls.append(normalized)
+            path_prefix = f"choices[{choice_index}]." if multiple_choices else ""
+            if aggregate.get("arguments_null_seen"):
                 report.add(
-                    "SSE_TOOL_ARGUMENTS_INVALID",
-                    severity,
-                    f"aggregated tool call {index} arguments are not valid JSON",
-                    path=f"tool_calls[{index}].function.arguments",
-                    hint=hint,
+                    "SSE_TOOL_ARGUMENTS_NULL",
+                    "info",
+                    f"streamed tool call {index} contains a null arguments fragment",
+                    path=f"{path_prefix}tool_calls[{index}].function.arguments",
+                    hint="Preserve later string deltas and normalize null before client-side argument splitting.",
                 )
-            else:
-                if not isinstance(decoded, dict):
+            if arguments:
+                try:
+                    decoded = json.loads(arguments)
+                except json.JSONDecodeError:
+                    if "length" in state["finish_reasons"]:
+                        severity = "warning"
+                        hint = "The model stopped at the token limit; do not execute an incomplete tool call."
+                    else:
+                        severity = "error"
+                        hint = "Wait for all argument deltas before parsing the tool call."
                     report.add(
-                        "SSE_TOOL_ARGUMENTS_NOT_OBJECT",
-                        "error",
-                        f"aggregated tool call {index} arguments are not a JSON object",
-                        path=f"tool_calls[{index}].function.arguments",
+                        "SSE_TOOL_ARGUMENTS_INVALID",
+                        severity,
+                        f"aggregated tool call {index} arguments are not valid JSON",
+                        path=f"{path_prefix}tool_calls[{index}].function.arguments",
+                        hint=hint,
                     )
+                else:
+                    if not isinstance(decoded, dict):
+                        report.add(
+                            "SSE_TOOL_ARGUMENTS_NOT_OBJECT",
+                            "error",
+                            f"aggregated tool call {index} arguments are not a JSON object",
+                            path=f"{path_prefix}tool_calls[{index}].function.arguments",
+                        )
+        choice_facts.append(
+            {
+                "index": choice_index,
+                "content": "".join(state["content_parts"]),
+                "reasoning_content": "".join(state["reasoning_parts"]),
+                "finish_reasons": state["finish_reasons"],
+                "tool_calls": choice_calls,
+            }
+        )
 
     report.facts.update(
         {
@@ -266,8 +318,9 @@ def inspect_stream(lines: Iterable[str], *, source: str = "<stream>") -> Report:
             "empty_choices": empty_choices,
             "done_seen": done_seen,
             "finish_reasons": finish_reasons,
-            "content": "".join(content_parts),
-            "reasoning_content": "".join(reasoning_parts),
+            "content": None if multiple_choices else "".join(content_parts),
+            "reasoning_content": None if multiple_choices else "".join(reasoning_parts),
+            "choice_facts": choice_facts,
             "tool_calls": normalized_calls,
             "observed_tool_indices": observed_indices,
             "interleaved_tool_indices": interleaved,

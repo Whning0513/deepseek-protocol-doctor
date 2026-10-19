@@ -109,6 +109,65 @@ class StreamTests(unittest.TestCase):
             ["SSE_EMPTY_CHOICES"],
         )
 
+    def test_multiple_choices_keep_content_and_tool_calls_separate(self):
+        payloads = [
+            {
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {
+                            "content": "first ",
+                            "tool_calls": [
+                                {"index": 0, "function": {"name": "lookup", "arguments": '{"q":'}}
+                            ],
+                        },
+                    },
+                    {
+                        "index": 1,
+                        "delta": {
+                            "content": "second ",
+                            "tool_calls": [
+                                {"index": 0, "function": {"name": "lookup", "arguments": '{"q":'}}
+                            ],
+                        },
+                    },
+                ]
+            },
+            {
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {
+                            "content": "choice",
+                            "tool_calls": [{"index": 0, "function": {"arguments": '"a"}'}}],
+                        },
+                    },
+                    {
+                        "index": 1,
+                        "delta": {
+                            "content": "choice",
+                            "tool_calls": [{"index": 0, "function": {"arguments": '"b"}'}}],
+                        },
+                    },
+                ]
+            },
+        ]
+        lines = [f"data: {json.dumps(payload)}" for payload in payloads]
+
+        report = inspect_stream(lines, source="multiple-choices")
+
+        self.assertTrue(report.ok, report.to_dict())
+        self.assertIsNone(report.facts["content"])
+        self.assertEqual(
+            [(choice["index"], choice["content"]) for choice in report.facts["choice_facts"]],
+            [(0, "first choice"), (1, "second choice")],
+        )
+        self.assertEqual(
+            [(call["choice_index"], call["function"]["arguments"]) for call in report.facts["tool_calls"]],
+            [(0, '{"q":"a"}'), (1, '{"q":"b"}')],
+        )
+        self.assertIn("SSE_MULTIPLE_CHOICES", {finding.code for finding in report.findings})
+
 
 if __name__ == "__main__":
     unittest.main()
